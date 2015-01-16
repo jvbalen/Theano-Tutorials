@@ -1,5 +1,6 @@
 
 import numpy as np
+from numpy import random as rnd
 import pandas as pd
 import csv
 import os
@@ -54,24 +55,13 @@ def mnist(ntrain=60000,ntest=10000,onehot=True):
     return trX, teX, trY, teY
 
 
-def coverpairs(ind):
-    filelist = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
-    filedir = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
-    ext = '_vamp_vamp-hpcp-mtg_MTG-HPCP_HPCP.csv'
+def get_pair(ind, filedir, ext, xlist, ylist, i, j, d):
 
-    Xfile = readfilelist(filelist + 'list1.list')
-    Yfile = readfilelist(filelist + 'list2.list')
+    i, j, d = i[ind], j[ind], d[ind]
+    x = pd.read_csv(filedir + xlist[i][0] + ext, delimiter=',').values[:,1:]
+    y = pd.read_csv(filedir + ylist[j][0] + ext, delimiter=',').values[:,1:]
 
-    n = len(Xfile)
-    i, j, d = covers_and_noncover_pairs(n, ind)
-
-    X = pd.read_csv(filedir + Xfile[i][0] + ext, delimiter=',').values[:,1:]
-    Y = pd.read_csv(filedir + Yfile[j][0] + ext, delimiter=',').values[:,1:]
-
-    X.reshape((1,1,-1,12))
-    Y.reshape((1,1,-1,12))
-
-    return X, Y, d
+    return x.reshape((1, 1, -1, 12)), y.reshape((1, 1, -1, 12)), d
 
 
 def readfilelist(filelist):
@@ -80,18 +70,41 @@ def readfilelist(filelist):
     return list(listreader)
 
 
-def covers_and_noncover_pairs(n, ind):
-    indX = np.repeat(range(n),2)
+def get_rand_pairs():
+    """
+    :param n: number of true cover pairs in collection. total number of pairs returned (true + false) will be 2n.
+    :return: filedir, ext, xlist, ylist
+        i = index of first song, j = index of second song, d = distance (= 0 for true pairs, 1 for false pairs)
+    """
+
+    filelist = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
+    filedir = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
+    ext = '_vamp_vamp-hpcp-mtg_MTG-HPCP_HPCP.csv'
+
+    xlist = readfilelist(filelist + 'list1.list')
+    ylist = readfilelist(filelist + 'list2.list')
+
+    n = len(xlist)
     d = np.tile([0, 1], n)
+    indX = np.repeat(range(n), 2)
     indY = np.mod(indX + d, n)
-    # print d.shape
-    return indX[ind], indY[ind], d[ind]
+
+    randperm = rnd.permutation(2 * n)
+    pairs = {
+        'filedir': filedir,
+        'ext': ext,
+        'xlist': xlist,
+        'ylist': ylist,
+        'i': indX[randperm],
+        'j': indY[randperm],
+        'd': d[randperm]}
+    return pairs
 
 
-def test_covers80():
-    x, y, d = coverpairs(4)
-    print 'testing c80'
-    print type(x), type(y), type(d)
-    print x.shape, y.shape, d
+# def test_covers80():
+#     x, y, d = coverpairs(4)
+#     print 'testing c80'
+#     print type(x), type(y), type(d)
+#     print x.shape, y.shape, d
 
 # test_covers80()
