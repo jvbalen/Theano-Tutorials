@@ -3,7 +3,7 @@ from theano import tensor as T
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import numpy as np
 from numpy import random as rnd
-from load import get_rand_pairs, get_pair
+from load import rand_pairs_c80, rand_pairs_t2k, get_pair
 from theano.tensor.nnet.conv import conv2d
 # from theano.tensor.signal.conv import conv2d
 from theano.tensor.signal.downsample import max_pool_2d
@@ -73,44 +73,61 @@ b_rnd = rnd.randn()
 W_lr = theano.shared(floatX(w_rnd), name='W_lr')
 B_lr = theano.shared(floatX(b_rnd), name='B_lr')
 
-# d_pred = fpdist(X, Y, W_conv, W_lr, B_lr)
-# params = [W_conv, W_lr, B_lr]
-d_pred = baselinedist(X, Y, W_lr, B_lr)
-params = [W_lr, B_lr]
+d_pred = fpdist(X, Y, W_conv, W_lr, B_lr)
+params = [W_conv, W_lr, B_lr]
+params = [W_conv, B_lr]
+# d_pred = baselinedist(X, Y, W_lr, B_lr)
+# params = [W_lr, B_lr]
 
 cost = (d_pred - d_true)**2
-updates = RMSprop(cost, params, lr=0.1)     # default learning rate above (.001) seems to asume minitbatch size ~ 100
+updates = RMSprop(cost, params, lr=.01)     # default learning rate above (.001) seems to assume minitbatch size ~ 100
 
 train = theano.function(inputs=[X, Y, d_true], outputs=cost, updates=updates)    # allow_input_downcast=True)
 predict = theano.function(inputs=[X, Y], outputs=d_pred)    # allow_input_downcast=True)
 share = theano.function(inputs=[], outputs=params)
 
 n_ep = 100
-n_songs = 160
-true_log = np.zeros((n_ep, n_songs))
-cost_log = np.zeros((n_ep, n_songs))
-pred_log = np.zeros((n_ep, n_songs))
-perf_log = np.zeros((n_ep, n_songs))
+# n_songs = 160                 # comment for t2k experiment
+n_songs = 400                 # comment for c80 experiment
+n_train = int(.75*n_songs)
+training_set = range(n_train)
+test_set = range(n_train, n_songs)
+
+true_log = np.zeros((n_ep, n_train))
+cost_log = np.zeros((n_ep, n_train))
+pred_log = np.zeros((n_ep, n_train))
+perf_log = np.zeros((n_ep, n_train))
+test_log = np.zeros((n_ep, n_songs-n_train))
 for ep in range(n_ep):
     print 'epoque: ' + str(ep) + '...'
-    rand_pairs = get_rand_pairs()
-    for s in range(n_songs):
-        # print 'song pair: ' + str(s)
+    # rand_pairs = rand_pairs_c80()               # comment for t2k experiment
+    rand_pairs = rand_pairs_t2k()               # comment for c80 experiment
+    for s in training_set:
         X_train, Y_train, d_train = get_pair(s, **rand_pairs)
-        # print X_train.shape, Y_train.shape
         true_log[ep, s] = d_train
-        cost_log[ep, s] = train(X_train, Y_train, d_train)
         pred_log[ep, s] = predict(X_train, Y_train)
         perf_log[ep, s] = (pred_log[ep, s] > 0.5) == d_train
-    print true_log[ep]
-    print pred_log[ep]
-    # print cost_log[ep]
+        cost_log[ep, s] = train(X_train, Y_train, d_train)
+        # print 'training song pair: ' + str(s)
+        # print X_train.shape, Y_train.shape, d_train
+        # print W_lr.get_value(), B_lr.get_value()
+    for s in test_set:
+        X_test, Y_test, d_test = get_pair(s, **rand_pairs)
+        test_log[ep, s-n_train] = (predict(X_test, Y_test) > 0.5) == d_test
+
+        ''' PRINT STATEMENTS '''
+
+        # print 'test song pair: ' + str(s)
+    # print true_log[ep]
+    # print pred_log[ep]
+    # print cost_log[ep]s
     # print perf_log[ep]
-    print 'mean true: ' + str(np.mean(true_log[ep]))
-    print 'mean pred: ' + str(np.mean(pred_log[ep]))
+    # print test_log[ep]
+    # print 'mean true: ' + str(np.mean(true_log[ep]))
+    # print 'mean pred: ' + str(np.mean(pred_log[ep]))
     print 'mean cost: ' + str(np.mean(cost_log[ep]))
-    print 'mean perf: ' + str(np.mean(perf_log[ep]))
-    # print share()
+    print 'training accuracy: ' + str(np.mean(perf_log[ep]))
+    print 'test accuracy:     ' + str(np.mean(test_log[ep])) + '  (' + str(int(np.sum(test_log[ep]))) + '/' + str(len(test_log[ep])) + ')'
 # print true_log
 # print pred_log
 # print cost_log

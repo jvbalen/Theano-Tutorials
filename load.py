@@ -55,12 +55,13 @@ def mnist(ntrain=60000,ntest=10000,onehot=True):
     return trX, teX, trY, teY
 
 
-def get_pair(ind, filedir, ext, xlist, ylist, i, j, d):
+def get_pair(ind, filedir, ext, xlist, ylist, i, j, d, colskip):
 
     i, j, d = i[ind], j[ind], d[ind]
-    x = pd.read_csv(filedir + xlist[i][0] + ext, delimiter=',').values[:,1:]
-    y = pd.read_csv(filedir + ylist[j][0] + ext, delimiter=',').values[:,1:]
-
+    x = pd.read_csv(filedir + xlist[i][0] + ext, delimiter=',').values[:, colskip:colskip+12]
+    y = pd.read_csv(filedir + ylist[j][0] + ext, delimiter=',').values[:, colskip:colskip+12]
+    # print xlist[i][0]
+    # print ylist[j][0]
     return x.reshape((1, 1, -1, 12)), y.reshape((1, 1, -1, 12)), d
 
 
@@ -70,24 +71,18 @@ def readfilelist(filelist):
     return list(listreader)
 
 
-def get_rand_pairs():
+def get_rand_pairs(xlist, ylist, filedir='', ext='', colskip=1):
     """
-    :param n: number of true cover pairs in collection. total number of pairs returned (true + false) will be 2n.
-    :return: filedir, ext, xlist, ylist
-        i = index of first song, j = index of second song, d = distance (= 0 for true pairs, 1 for false pairs)
+    :return: dictionary containing filedir, ext, xlist, ylist,
+        i (index of first song), j (index of second song) and d (distance; 0 for true pairs, 1 for false pairs)
     """
 
-    filelist = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
-    filedir = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
-    ext = '_vamp_vamp-hpcp-mtg_MTG-HPCP_HPCP.csv'
-
-    xlist = readfilelist(filelist + 'list1.list')
-    ylist = readfilelist(filelist + 'list2.list')
-
+    noncoverpair_offset = 1  # to construct noncover pairs, this script pairs song A with the song that is
+                                # this many entries behind its cover counterpart A'
     n = len(xlist)
     d = np.tile([0, 1], n)
     indX = np.repeat(range(n), 2)
-    indY = np.mod(indX + d, n)
+    indY = np.mod(indX + noncoverpair_offset*d, n)
 
     randperm = rnd.permutation(2 * n)
     pairs = {
@@ -97,8 +92,35 @@ def get_rand_pairs():
         'ylist': ylist,
         'i': indX[randperm],
         'j': indY[randperm],
-        'd': d[randperm]}
+        'd': d[randperm],
+        'colskip': colskip}
     return pairs
+
+
+def rand_pairs_c80():
+
+    filelist = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
+    filedir = '/Users/Jan/Documents/Work/Cogitch/Audio/covers80/'
+    ext = '_vamp_vamp-hpcp-mtg_MTG-HPCP_HPCP.csv'
+
+    xlist = readfilelist(filelist + 'list1.list')
+    ylist = readfilelist(filelist + 'list2.list')
+    return get_rand_pairs(xlist, ylist, filedir, ext, colskip=1)
+
+
+def rand_pairs_t2k():
+    """
+    returns 2 x 412 pairs, half of them covers, half of them not covers
+    :return:
+    """
+
+    filelist = '/Users/Jan/Documents/Work/Cogitch/Data/T2K/'
+    filedir = '/Users/Jan/Documents/Work/Cogitch/Data/T2K/'
+    ext = ''
+
+    xlist = readfilelist(filelist + 'list1.csv')
+    ylist = readfilelist(filelist + 'list2.csv')
+    return get_rand_pairs(xlist, ylist, filedir, ext, colskip=0)
 
 
 # def test_covers80():
