@@ -48,6 +48,14 @@ def fpdist(x, y, w_conv, w_lr, b_lr):
     fpdiff = fpdiff/T.sum(fpdiff)
     return sigmoid(fpdiff, w_lr, b_lr)
 
+def fpdist12(x, y, w_conv, w_lr, b_lr):
+    fpx_list = [fingerprint(transpose(x, i), w_conv) for i in range(12)]
+    fpy = fingerprint(y, w_conv)
+    fpdiff = [T.flatten((fpx[i]-fpy)**2) for fpx in fpx_list]
+    fpdiff = fpdiff/T.sum(fpdiff)
+
+    return sigmoid(fpdiff, w_lr, b_lr)
+
 
 def baselinedist(x, y, w_lr, b_lr):
     fpx = T.dot(x.dimshuffle((0, 1, 3, 2)), x)
@@ -62,7 +70,7 @@ Y = T.tensor4(name='Y')
 d_true = T.scalar()
 
 init_scale = 1
-nfilters = 10
+nfilters = 16
 k1, k2 = (1, 12)
 w_shp = (nfilters, 1, k1, k2)
 w_rnd = rnd.randn(*w_shp) * init_scale / np.sqrt(nfilters * k1 * k2)
@@ -74,8 +82,7 @@ W_lr = theano.shared(floatX(w_rnd), name='W_lr')
 B_lr = theano.shared(floatX(b_rnd), name='B_lr')
 
 d_pred = fpdist(X, Y, W_conv, W_lr, B_lr)
-params = [W_conv, W_lr, B_lr]
-params = [W_conv, B_lr]
+params = [W_conv, W_lr, B_lr]    # params = [W_conv, B_lr] ?
 # d_pred = baselinedist(X, Y, W_lr, B_lr)
 # params = [W_lr, B_lr]
 
